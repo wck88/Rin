@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useContext } from "react";
+import { useContext, useLayoutEffect } from "react"; // 使用 useLayoutEffect 确保在渲染前锁定标题
 import type { DefaultParams, PathPattern } from "wouter";
 import { Route, Switch } from "wouter";
 import { AdminLayout } from "../components/admin-layout";
@@ -150,6 +150,29 @@ function AppRoute({
   const siteConfig = useSiteConfig();
   const { t } = useTranslation();
 
+  useLayoutEffect(() => {
+    const targetTitle = (window as any).SEO_TITLE;
+    
+    if ((path === "/" || window.location.pathname === "/") && targetTitle) {
+      if (document.title !== targetTitle) {
+        document.title = targetTitle;
+      }
+  
+      const observer = new MutationObserver(() => {
+        if (document.title !== targetTitle) {
+          document.title = targetTitle;
+        }
+      });
+
+      const titleNode = document.querySelector('title');
+      if (titleNode) {
+        observer.observe(titleNode, { childList: true });
+      }
+
+      return () => observer.disconnect();
+    }
+  }, [path]);
+
   const content =
     requirePermission && !profile?.permission ? <ErrorPage error={t("error.permission_denied")} /> : children;
 
@@ -159,9 +182,44 @@ function AppRoute({
         const resolvedContent = typeof content === "function" ? content(params) : content;
         const layoutDefinition = getHeaderLayoutDefinition(siteConfig.headerLayout);
 
-        return layoutDefinition.renderRouteShell({
+      // routes.tsx 里的 AppRoute 组件渲染部分 (约 175 行)
+
+       return layoutDefinition.renderRouteShell({
           header: <Header>{headerComponent}</Header>,
-          content: <Padding className={paddingClassName}>{resolvedContent}</Padding>,
+          content: (
+            <div className="relative">
+              
+              {/* 左侧精致挂件区：全站显示 */}
+              <aside className="hidden 2xl:block absolute w-[240px] z-10" 
+                     style={{ 
+                       top: '170px', 
+                       left: 'calc(50% - 750px)' 
+                     }}>
+                <div className="transform scale-95 origin-top-left">
+                  <Padding mode="left" />
+                </div>
+              </aside>
+
+              {/* 💡 增加：右侧挂件，仅在首页 (path === "/") 显示 */}
+              {path === "/" && (
+                <aside className="hidden 2xl:block absolute w-[280px] z-10" 
+                       style={{ 
+                         top: '150px', 
+                         left: 'calc(50% + 490px)' 
+                       }}>
+                  <div className="transform scale-95 origin-top-left">
+                    <Padding mode="right" />
+                  </div>
+                </aside>
+              )}
+
+              {/* 中间内容区 */}
+              <Padding className={paddingClassName}>
+                {resolvedContent}
+              </Padding>
+
+            </div>
+          ),
           footer: <Footer />,
           paddingClassName,
         });
