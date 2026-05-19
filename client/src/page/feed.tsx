@@ -529,7 +529,7 @@ function CommentItem({
       t("delete.comment.confirm"),
       async () => {
         client.comment
-          。delete(comment.id)
+          .delete(comment.id)
           .then(({ error }) => {
             if (error) {
               showAlert(error.value as string);
